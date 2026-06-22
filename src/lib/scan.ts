@@ -66,8 +66,15 @@ export function scanStatus(): ScanState {
   return { ...rest };
 }
 
+// Aborts the embedding request that is in flight when a scan is cancelled, so
+// Stop is near-instant instead of waiting for the current file to finish.
+let scanController: AbortController | null = null;
+
 export function cancelScan() {
-  if (state.running) state.cancel = true;
+  if (state.running) {
+    state.cancel = true;
+    scanController?.abort();
+  }
 }
 
 async function* walk(dir: string): AsyncGenerator<string> {
@@ -109,6 +116,7 @@ export async function startScan(
     cancel: false,
   });
 
+  scanController = new AbortController();
   try {
     const collectionId = await getOrCreateCollection(collectionName);
     for (const root of roots) {
@@ -118,11 +126,12 @@ export async function startScan(
         state.found++;
         state.current = file;
         try {
-          const res = await ingestFile(file, collectionId);
+          const res = await ingestFile(file, collectionId, scanController.signal);
           if (res.skipped) state.skipped++;
           else state.ingested++;
         } catch {
-          state.failed++;
+          // A cancel aborts the in-flight embed: that is not a real failure.
+          if (!state.cancel) state.failed++;
         }
       }
     }
@@ -132,5 +141,6 @@ export async function startScan(
     state.running = false;
     state.current = null;
     state.cancel = false;
+    scanController = null;
   }
 }

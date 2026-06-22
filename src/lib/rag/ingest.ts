@@ -40,6 +40,7 @@ export async function upsertDocument(params: {
   contentHash: string; // hash of the ORIGINAL raw content
   mimeType?: string;
   metadata?: Record<string, unknown>;
+  signal?: AbortSignal; // aborts the embedding request (e.g. when a scan is cancelled)
 }): Promise<IngestResult> {
   const { collectionId, source, title, contentHash } = params;
   const mimeType = params.mimeType ?? "text/markdown";
@@ -61,7 +62,7 @@ export async function upsertDocument(params: {
   const pieces = chunkMarkdown(markdown);
   if (pieces.length === 0) return { skipped: true, chunks: 0 };
 
-  const vectors = await embed(pieces.map((p) => p.content));
+  const vectors = await embed(pieces.map((p) => p.content), params.signal);
 
   await db.transaction(async (tx) => {
     if (priorRows.length) {
@@ -113,7 +114,8 @@ export async function listSources(collectionId: string): Promise<string[]> {
  */
 export async function ingestFile(
   filePath: string,
-  collectionId: string
+  collectionId: string,
+  signal?: AbortSignal
 ): Promise<IngestResult> {
   const extracted = await extractFile(filePath);
   if (!extracted) return { skipped: true, chunks: 0 };
@@ -125,5 +127,6 @@ export async function ingestFile(
     contentHash: extracted.contentHash,
     mimeType: extracted.mimeType,
     metadata: extracted.metadata,
+    signal,
   });
 }

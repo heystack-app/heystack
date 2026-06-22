@@ -1,0 +1,21 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="heystack - chat with your own files">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0b0d"/>
+      <stop offset="1" stop-color="#17171f"/>
+    </linearGradient>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="320" rx="24" fill="url(#bg)"/>
+  <circle cx="1070" cy="70" r="200" fill="url(#grad)" opacity="0.10"/>
+  <circle cx="150" cy="280" r="140" fill="url(#grad)" opacity="0.07"/>
+  <g transform="translate(84,92)">
+    <circle cx="12" cy="6" r="13" fill="url(#grad)"/>
+    <text x="40" y="30" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="86" font-weight="800" fill="url(#grad)">heystack</text>
+  </g>
+  <text x="86" y="208" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#d7d7e0">Chat with your own files. Private, self-hosted, with sources.</text>
+  <text x="86" y="252" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" fill="#8a8a99">Local AI &#183; 100+ languages &#183; PDF &#183; Word &#183; Excel &#183; PowerPoint &#183; Markdown</text>
+</svg>

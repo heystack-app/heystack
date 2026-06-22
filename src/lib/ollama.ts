@@ -4,11 +4,27 @@ import { env } from "./env";
 // Single shared client pointed at the local Ollama runtime.
 export const ollama = new Ollama({ host: env.OLLAMA_BASE_URL });
 
-/** Embed a batch of texts. Returns one vector per input, in order. */
-export async function embed(texts: string[]): Promise<number[][]> {
+/**
+ * Embed a batch of texts. Returns one vector per input, in order.
+ * Uses Ollama's embed endpoint via fetch so an AbortSignal can interrupt an
+ * in-flight request (the ollama client's abort() only targets streamed calls).
+ */
+export async function embed(
+  texts: string[],
+  signal?: AbortSignal
+): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const res = await ollama.embed({ model: env.EMBEDDING_MODEL, input: texts });
-  return res.embeddings;
+  const res = await fetch(`${env.OLLAMA_BASE_URL}/api/embed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: env.EMBEDDING_MODEL, input: texts }),
+    signal,
+  });
+  if (!res.ok) {
+    throw new Error(`Embedding request failed: ${res.status}`);
+  }
+  const data = (await res.json()) as { embeddings: number[][] };
+  return data.embeddings;
 }
 
 /** Embed a single text. */
