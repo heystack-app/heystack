@@ -24,31 +24,39 @@ export async function getOrCreateCollection(name: string): Promise<string> {
 
 export type IngestResult = { skipped: boolean; chunks: number };
 
+export function hashContent(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
+
 /**
- * Ingest one markdown file: parse frontmatter, chunk, embed, and store.
- * Re-ingesting an unchanged file (same content hash) is a no-op. A changed
- * file replaces its previous chunks atomically.
+ * Core upsert: chunk -> embed -> store, replacing any prior version of the same
+ * (collection, source) atomically, and skipping when the content hash is
+ * unchanged. Every connector (plain markdown, Obsidian, and future ones) funnels
+ * through here so retrieval quality stays consistent across sources.
  */
-export async function ingestMarkdownFile(
-  filePath: string,
-  collectionId: string
-): Promise<IngestResult> {
-  const raw = await readFile(filePath, "utf8");
-  const hash = createHash("sha256").update(raw).digest("hex");
+export async function upsertDocument(params: {
+  collectionId: string;
+  source: string; // stable id, e.g. a file path or vault-relative path
+  title: string;
+  markdown: string; // content to chunk (already preprocessed if needed)
+  contentHash: string; // hash of the ORIGINAL raw content
+  mimeType?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<IngestResult> {
+  const { collectionId, source, title, markdown, contentHash } = params;
+  const mimeType = params.mimeType ?? "text/markdown";
+  const metadata = params.metadata ?? {};
 
   const prior = await db.execute(
     sql`select id, content_hash from documents
-        where collection_id = ${collectionId} and source = ${filePath} limit 1`
+        where collection_id = ${collectionId} and source = ${source} limit 1`
   );
   const priorRows = prior.rows as { id: string; content_hash: string }[];
-  if (priorRows.length && priorRows[0].content_hash === hash) {
+  if (priorRows.length && priorRows[0].content_hash === contentHash) {
     return { skipped: true, chunks: 0 };
   }
 
-  const parsed = matter(raw);
-  const title =
-    typeof parsed.data.title === "string" ? parsed.data.title : basename(filePath);
-  const pieces = chunkMarkdown(parsed.content);
+  const pieces = chunkMarkdown(markdown);
   if (pieces.length === 0) return { skipped: true, chunks: 0 };
 
   const vectors = await embed(pieces.map((p) => p.content));
@@ -59,14 +67,7 @@ export async function ingestMarkdownFile(
     }
     const [doc] = await tx
       .insert(documents)
-      .values({
-        collectionId,
-        source: filePath,
-        title,
-        mimeType: "text/markdown",
-        contentHash: hash,
-        metadata: parsed.data ?? {},
-      })
+      .values({ collectionId, source, title, mimeType, contentHash, metadata })
       .returning({ id: documents.id });
 
     await tx.insert(chunks).values(
@@ -82,4 +83,42 @@ export async function ingestMarkdownFile(
   });
 
   return { skipped: false, chunks: pieces.length };
+}
+
+/** Remove a document (chunks cascade) by its source. Returns true if removed. */
+export async function removeDocument(
+  collectionId: string,
+  source: string
+): Promise<boolean> {
+  const res = await db.execute(
+    sql`delete from documents where collection_id = ${collectionId} and source = ${source}`
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
+/** List the sources currently stored for a collection. */
+export async function listSources(collectionId: string): Promise<string[]> {
+  const res = await db.execute(
+    sql`select source from documents where collection_id = ${collectionId}`
+  );
+  return (res.rows as { source: string }[]).map((r) => r.source);
+}
+
+/** Ingest a single markdown file from disk (generic, absolute-path source). */
+export async function ingestMarkdownFile(
+  filePath: string,
+  collectionId: string
+): Promise<IngestResult> {
+  const raw = await readFile(filePath, "utf8");
+  const parsed = matter(raw);
+  const title =
+    typeof parsed.data.title === "string" ? parsed.data.title : basename(filePath);
+  return upsertDocument({
+    collectionId,
+    source: filePath,
+    title,
+    markdown: parsed.content,
+    contentHash: hashContent(raw),
+    metadata: parsed.data ?? {},
+  });
 }

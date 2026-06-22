@@ -71,6 +71,20 @@ npm run ingest -- "/path/to/your/notes" "My Notes"
 Prefer to run Ollama in a container too? `docker compose --profile ollama up -d`
 and set `OLLAMA_BASE_URL=http://ollama:11434` in `.env`.
 
+### Sync an Obsidian vault
+
+Point heystack at an Obsidian vault (or any folder of markdown). Wiki-links are
+normalized for clean retrieval, and tags, aliases, and links are captured as
+metadata. Deleted notes are removed on the next sync.
+
+```bash
+# one-off sync
+npm run obsidian -- "C:/path/to/Vault" "My Vault"
+
+# live sync: keep the collection updated as you edit (Ctrl+C to stop)
+npm run obsidian -- "C:/path/to/Vault" "My Vault" --watch
+```
+
 ### Local development
 
 ```bash
@@ -93,16 +107,19 @@ src/
       retrieve.ts  hybrid search (vector + full-text) fused with RRF
       rerank.ts    reranking hook (cross-encoder coming next)
       ask.ts       retrieve -> rerank -> grounded answer with citations
-scripts/ingest.ts  the ingest CLI (npm run ingest)
+    connectors/
+      obsidian.ts  Obsidian vault sync (wiki-links, tags, live watch)
+scripts/ingest.ts  the markdown ingest CLI (npm run ingest)
+scripts/obsidian.ts the Obsidian vault sync CLI (npm run obsidian)
 db/init.sql        schema + pgvector/full-text indexes (applied on first boot)
 docker-compose.yml app + Postgres (+ optional Ollama)
 ```
 
 ## Roadmap (short)
 
-- v0.1: local markdown files, hybrid retrieval, citations, one-command deploy.
-- v0.2: first-class Obsidian / markdown vault connector with live sync, a
-  cross-encoder reranker, and a public demo.
+- v0.1: local markdown files, hybrid retrieval, citations, one-command deploy. (done)
+- v0.2: Obsidian vault connector with live sync (done). Next: a cross-encoder
+  reranker and a public demo.
 - v1.0: more connectors, multi-user, k3s/Helm, power-user retrieval settings.
 
 ## License
