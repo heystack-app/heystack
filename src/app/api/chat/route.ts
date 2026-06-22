@@ -1,6 +1,10 @@
-import { ask } from "@/lib/rag/ask";
+import { askStream } from "@/lib/rag/ask";
 
-// Route handlers are dynamic by default in Next 16, which is what we want here.
+// Streams newline-delimited JSON events:
+//   {"type":"citations","citations":[...]}   once, up front
+//   {"type":"token","text":"..."}            many, as the answer is generated
+//   {"type":"done"}                          at the end
+//   {"type":"error","message":"..."}         if generation fails mid-stream
 export async function POST(request: Request) {
   let body: { question?: string; collectionId?: string };
   try {
@@ -14,17 +18,34 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing 'question'" }, { status: 400 });
   }
 
-  try {
-    // An empty collectionId means "search every collection".
-    const result = await ask(question, {
-      collectionId: body.collectionId || undefined,
-    });
-    return Response.json(result);
-  } catch (err) {
-    console.error("chat error", err);
-    return Response.json(
-      { error: "Something went wrong answering your question." },
-      { status: 500 }
-    );
-  }
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj: unknown) =>
+        controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      try {
+        const { citations, tokens } = await askStream(question, {
+          collectionId: body.collectionId || undefined,
+        });
+        send({ type: "citations", citations });
+        for await (const text of tokens) send({ type: "token", text });
+        send({ type: "done" });
+      } catch (err) {
+        console.error("chat stream error", err);
+        send({
+          type: "error",
+          message: "Something went wrong answering your question.",
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }

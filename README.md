@@ -119,8 +119,9 @@ docker-compose.yml app + Postgres (+ optional Ollama)
 ## Roadmap (short)
 
 - v0.1: local markdown/mdx files, hybrid retrieval, citations, one-command deploy. (done)
-- v0.2: Obsidian connector with live sync, .mdx support, an LLM reranker, and a
-  collection picker (done). Next: streaming responses and a public demo.
+- v0.2: Obsidian connector with live sync, .mdx support, an LLM reranker, a
+  collection picker, and streaming answers (done). Next: more file types
+  (PDF, Word) and a public demo.
 - v1.0: more connectors, multi-user, k3s/Helm, power-user retrieval settings.
 
 ## License

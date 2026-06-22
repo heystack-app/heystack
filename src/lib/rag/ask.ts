@@ -1,6 +1,6 @@
 import { retrieve } from "./retrieve";
 import { rerank } from "./rerank";
-import { chat, type ChatMessage } from "@/lib/ollama";
+import { chat, chatStream, type ChatMessage } from "@/lib/ollama";
 
 export type Citation = {
   title: string;
@@ -21,34 +21,31 @@ Rules:
 - Cite sources inline like [1], [2] matching the numbered sources you used.
 - Be concise and direct.`;
 
-/**
- * The full question-answering flow: hybrid retrieve, rerank, ground the model on
- * the retrieved chunks, and return the answer together with its citations. The
- * model is instructed to answer only from the sources, which is what makes the
- * answer trustworthy and verifiable.
- */
+const NO_RESULTS =
+  "I could not find anything about that in your notes. Try rephrasing, or add more documents.";
+
 // Pull a wider candidate set from retrieval, then let the reranker narrow it to
 // the few best passages we actually feed the model.
 const CANDIDATE_K = 15;
 const ANSWER_K = 6;
 
-export async function ask(
+type Prepared =
+  | { empty: true }
+  | { empty: false; messages: ChatMessage[]; citations: Citation[] };
+
+// Shared pipeline up to (but not including) generation: retrieve, rerank, and
+// build the grounded prompt plus the citations. Both ask() and askStream() use
+// this so they behave identically apart from how the answer is delivered.
+async function prepare(
   question: string,
-  opts: { collectionId?: string; topK?: number } = {}
-): Promise<Answer> {
+  opts: { collectionId?: string; topK?: number }
+): Promise<Prepared> {
   const retrieved = await retrieve(question, {
     collectionId: opts.collectionId,
     topK: CANDIDATE_K,
   });
   const ranked = await rerank(question, retrieved, opts.topK ?? ANSWER_K);
-
-  if (ranked.length === 0) {
-    return {
-      answer:
-        "I could not find anything about that in your notes. Try rephrasing, or add more documents.",
-      citations: [],
-    };
-  }
+  if (ranked.length === 0) return { empty: true };
 
   const context = ranked
     .map(
@@ -65,15 +62,41 @@ export async function ask(
     },
   ];
 
-  const answer = await chat(messages);
+  const citations: Citation[] = ranked.map((r) => ({
+    title: r.title,
+    source: r.source,
+    sectionPath: r.sectionPath,
+    snippet: r.content.slice(0, 240),
+  }));
 
-  return {
-    answer,
-    citations: ranked.map((r) => ({
-      title: r.title,
-      source: r.source,
-      sectionPath: r.sectionPath,
-      snippet: r.content.slice(0, 240),
-    })),
-  };
+  return { empty: false, messages, citations };
+}
+
+/** Answer a question, returning the full answer and its citations at once. */
+export async function ask(
+  question: string,
+  opts: { collectionId?: string; topK?: number } = {}
+): Promise<Answer> {
+  const prepared = await prepare(question, opts);
+  if (prepared.empty) return { answer: NO_RESULTS, citations: [] };
+  const answer = await chat(prepared.messages);
+  return { answer, citations: prepared.citations };
+}
+
+/**
+ * Answer a question with streaming. Citations are known before generation, so
+ * they are returned immediately alongside an async generator of answer tokens.
+ */
+export async function askStream(
+  question: string,
+  opts: { collectionId?: string; topK?: number } = {}
+): Promise<{ citations: Citation[]; tokens: AsyncGenerator<string> }> {
+  const prepared = await prepare(question, opts);
+  if (prepared.empty) {
+    async function* single() {
+      yield NO_RESULTS;
+    }
+    return { citations: [], tokens: single() };
+  }
+  return { citations: prepared.citations, tokens: chatStream(prepared.messages) };
 }

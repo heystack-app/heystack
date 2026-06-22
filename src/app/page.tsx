@@ -35,16 +35,43 @@ export default function Home() {
     if (!q || loading) return;
     setLoading(true);
     setError(null);
-    setResult(null);
+    setResult({ answer: "", citations: [] });
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, collectionId: collectionId || undefined }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Request failed");
-      setResult(data as Answer);
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Request failed");
+      }
+
+      // Read the newline-delimited JSON stream and render tokens as they arrive.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let answer = "";
+      let citations: Citation[] = [];
+
+      const handle = (line: string) => {
+        if (!line.trim()) return;
+        const evt = JSON.parse(line);
+        if (evt.type === "error") throw new Error(evt.message);
+        if (evt.type === "citations") citations = evt.citations;
+        else if (evt.type === "token") answer += evt.text;
+        setResult({ answer, citations });
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) handle(line);
+      }
+      if (buffer.trim()) handle(buffer);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -104,7 +131,10 @@ export default function Home() {
       {result && (
         <section className="flex flex-col gap-4">
           <div className="whitespace-pre-wrap rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
-            {result.answer}
+            {result.answer ||
+              (loading ? (
+                <span className="text-gray-400">Searching your notes…</span>
+              ) : null)}
           </div>
 
           {result.citations.length > 0 && (

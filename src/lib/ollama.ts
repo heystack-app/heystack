@@ -22,7 +22,7 @@ export type ChatMessage = {
   content: string;
 };
 
-/** One non-streaming chat completion. Streaming is a later enhancement. */
+/** One non-streaming chat completion. */
 export async function chat(messages: ChatMessage[]): Promise<string> {
   const res = await ollama.chat({
     model: env.CHAT_MODEL,
@@ -30,4 +30,19 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
     stream: false,
   });
   return res.message.content;
+}
+
+/** Stream a chat completion token by token. */
+export async function* chatStream(
+  messages: ChatMessage[]
+): AsyncGenerator<string> {
+  const res = await ollama.chat({
+    model: env.CHAT_MODEL,
+    messages,
+    stream: true,
+  });
+  for await (const part of res) {
+    const text = part.message?.content;
+    if (text) yield text;
+  }
 }
