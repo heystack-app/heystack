@@ -12,6 +12,7 @@ export const SUPPORTED_EXTENSIONS = new Set([
   ".md",
   ".mdx",
   ".txt",
+  ".csv",
   ".pdf",
   ".docx",
   ".pptx",
@@ -79,6 +80,16 @@ export async function extractFile(filePath: string): Promise<Extracted | null> {
       text: buf.toString("utf8"),
       title: fallbackTitle,
       mimeType: "text/plain",
+      metadata: {},
+      contentHash,
+    };
+  }
+
+  if (ext === ".csv") {
+    return {
+      text: buf.toString("utf8"),
+      title: fallbackTitle,
+      mimeType: "text/csv",
       metadata: {},
       contentHash,
     };

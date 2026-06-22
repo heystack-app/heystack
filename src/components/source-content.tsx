@@ -90,7 +90,7 @@ export function SourceChunk({
       </div>
     );
   }
-  if (mimeType.includes("spreadsheet")) {
+  if (mimeType.includes("spreadsheet") || mimeType === "text/csv") {
     return <CsvTable csv={content} />;
   }
   // Word, PowerPoint, plain text: readable paragraphs rather than a raw dump.

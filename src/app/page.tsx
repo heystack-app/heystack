@@ -186,7 +186,9 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <ScanButton onChanged={loadCollections} />
+            {process.env.NEXT_PUBLIC_DEMO_MODE !== "true" && (
+              <ScanButton onChanged={loadCollections} />
+            )}
             <ThemeToggle />
           </div>
         </header>

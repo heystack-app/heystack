@@ -7,6 +7,14 @@ export async function GET() {
 
 // Start a scan in the background, or cancel a running one.
 export async function POST(request: Request) {
+  // In a public demo, scanning the server's filesystem must be disabled.
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+    return Response.json(
+      { error: "Scanning is disabled in demo mode." },
+      { status: 403 }
+    );
+  }
+
   let body: { action?: string; roots?: string[] } = {};
   try {
     body = await request.json();

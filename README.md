@@ -120,6 +120,19 @@ npm run ingest -- "/path/to/your/docs" "My Docs"
 
 Prefer Ollama in a container too? `docker compose --profile ollama up -d` and set `OLLAMA_BASE_URL=http://ollama:11434` in `.env`.
 
+### Try the demo
+
+Load a small, neutral demo knowledge base (a multilingual coffee guide in
+Markdown, CSV, and PDF) so you have something to chat with right away:
+
+```bash
+npm run seed     # loads demo/ into a "Demo" collection
+```
+
+Then open the app and try, for example, _"where does coffee come from?"_ (the
+answer is in a **Spanish** document) or _"how much caffeine is in a cup?"_
+(**German**) — heystack finds them across languages.
+
 ### Bring in documents
 
 ```bash
@@ -149,6 +162,7 @@ npm run dev                # http://localhost:3000
 | Word | `.docx` | Text via mammoth |
 | Excel | `.xlsx`, `.xls` | One section per sheet (CSV), rendered as tables |
 | PowerPoint | `.pptx` | Text via officeparser |
+| CSV | `.csv` | Rendered as a table |
 | Text | `.txt` | As-is |
 
 ## ⚙️ Configuration
@@ -166,6 +180,19 @@ All via environment (`.env`). Sensible local defaults.
 | `SCAN_ROOTS` | Desktop/Documents/Downloads | Comma-separated folders for "Scan my computer" |
 | `DATABASE_URL` | local Postgres | Postgres + pgvector connection |
 | `OPENAI_API_KEY` | (empty) | Optional cloud fallback; leave empty to stay fully local |
+
+## 🌐 Hosting a public demo
+
+heystack runs the models locally, so a public demo needs a host that can run
+Ollama (a GPU box is much faster). To make a shared instance safe:
+
+- Set **`NEXT_PUBLIC_DEMO_MODE=true`** — hides "Scan my computer" and disables the
+  scan API, so it cannot read the server's filesystem.
+- Seed it with neutral content: `npm run seed`.
+- Put it behind a reverse proxy with **rate limiting** — every question runs an LLM.
+
+For a personal instance on your own machine, leave demo mode off and enjoy the
+full feature set.
 
 ## 🗂️ Project layout
 
