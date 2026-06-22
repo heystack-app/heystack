@@ -1,12 +1,10 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { basename, extname } from "node:path";
-import matter from "gray-matter";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { collections, documents, chunks } from "@/db/schema";
 import { chunkMarkdown } from "./chunk";
 import { embed } from "@/lib/ollama";
+import { extractFile } from "./extract";
 
 /** Find a collection by name, creating it if it does not exist. */
 export async function getOrCreateCollection(name: string): Promise<string> {
@@ -29,40 +27,16 @@ export function hashContent(raw: string): string {
 }
 
 /**
- * Light cleanup for MDX: drop the leading block of ESM import/export lines that
- * docs frameworks (fumadocs, docusaurus) put at the top. These are pure noise
- * for retrieval. We only strip the leading block and stop at the first real
- * content, so import/export lines shown inside code examples are left intact.
- */
-export function stripMdxNoise(content: string): string {
-  const lines = content.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const t = lines[i].trim();
-    if (t === "" || /^(import|export)\s/.test(t)) i++;
-    else break;
-  }
-  return lines.slice(i).join("\n").trim();
-}
-
-/** Read a markdown/mdx file's content as it should be chunked (MDX cleaned). */
-function contentForExt(filePath: string, markdown: string): string {
-  return extname(filePath).toLowerCase() === ".mdx"
-    ? stripMdxNoise(markdown)
-    : markdown;
-}
-
-/**
  * Core upsert: chunk -> embed -> store, replacing any prior version of the same
  * (collection, source) atomically, and skipping when the content hash is
- * unchanged. Every connector (plain markdown, Obsidian, and future ones) funnels
- * through here so retrieval quality stays consistent across sources.
+ * unchanged. Every connector (files, Obsidian, and future ones) funnels through
+ * here so retrieval quality stays consistent across sources.
  */
 export async function upsertDocument(params: {
   collectionId: string;
   source: string; // stable id, e.g. a file path or vault-relative path
   title: string;
-  markdown: string; // content to chunk (already preprocessed if needed)
+  markdown: string; // content to chunk (already extracted/preprocessed)
   contentHash: string; // hash of the ORIGINAL raw content
   mimeType?: string;
   metadata?: Record<string, unknown>;
@@ -128,23 +102,24 @@ export async function listSources(collectionId: string): Promise<string[]> {
   return (res.rows as { source: string }[]).map((r) => r.source);
 }
 
-/** Ingest a single markdown file from disk (generic, absolute-path source). */
-export async function ingestMarkdownFile(
+/**
+ * Ingest a single file (markdown, mdx, txt, pdf, or docx) from disk. The text is
+ * extracted per file type, then chunked, embedded, and stored. Unsupported types
+ * are skipped.
+ */
+export async function ingestFile(
   filePath: string,
   collectionId: string
 ): Promise<IngestResult> {
-  const raw = await readFile(filePath, "utf8");
-  const parsed = matter(raw);
-  const title =
-    typeof parsed.data.title === "string"
-      ? parsed.data.title
-      : basename(filePath, extname(filePath));
+  const extracted = await extractFile(filePath);
+  if (!extracted) return { skipped: true, chunks: 0 };
   return upsertDocument({
     collectionId,
     source: filePath,
-    title,
-    markdown: contentForExt(filePath, parsed.content),
-    contentHash: hashContent(raw),
-    metadata: parsed.data ?? {},
+    title: extracted.title,
+    markdown: extracted.text,
+    contentHash: extracted.contentHash,
+    mimeType: extracted.mimeType,
+    metadata: extracted.metadata,
   });
 }

@@ -7,6 +7,8 @@ export type Citation = {
   source: string;
   sectionPath: string | null;
   snippet: string;
+  documentId: string;
+  chunkId: string;
 };
 
 export type Answer = {
@@ -67,6 +69,8 @@ async function prepare(
     source: r.source,
     sectionPath: r.sectionPath,
     snippet: r.content.slice(0, 240),
+    documentId: r.documentId,
+    chunkId: r.chunkId,
   }));
 
   return { empty: false, messages, citations };

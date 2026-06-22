@@ -61,9 +61,9 @@ ollama pull llama3.1:8b
 cp .env.example .env
 docker compose up -d
 
-# 3. Ingest some markdown (a file or a whole folder, e.g. an Obsidian vault)
+# 3. Ingest a file or a whole folder (markdown, mdx, txt, PDF, or Word)
 npm install
-npm run ingest -- "/path/to/your/notes" "My Notes"
+npm run ingest -- "/path/to/your/docs" "My Docs"
 
 # 4. Open the app
 # http://localhost:3000
@@ -119,9 +119,10 @@ docker-compose.yml app + Postgres (+ optional Ollama)
 ## Roadmap (short)
 
 - v0.1: local markdown/mdx files, hybrid retrieval, citations, one-command deploy. (done)
-- v0.2: Obsidian connector with live sync, .mdx support, an LLM reranker, a
-  collection picker, and streaming answers (done). Next: more file types
-  (PDF, Word) and a public demo.
+- v0.2: Obsidian connector with live sync, an LLM reranker, a collection picker,
+  streaming answers, ingestion of markdown/mdx/txt/PDF/Word, and a clickable
+  source viewer that opens the cited passage (done). Next: a public demo and
+  multi-user auth.
 - v1.0: more connectors, multi-user, k3s/Helm, power-user retrieval settings.
 
 ## License

@@ -7,9 +7,9 @@ import {
   removeDocument,
   listSources,
   hashContent,
-  stripMdxNoise,
   type IngestResult,
 } from "@/lib/rag/ingest";
+import { stripMdxNoise } from "@/lib/rag/extract";
 
 const IGNORED_DIRS = new Set([".obsidian", ".trash", ".git", "node_modules"]);
 
