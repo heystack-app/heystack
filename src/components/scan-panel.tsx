@@ -15,48 +15,67 @@ type ScanStatus = {
   defaultRoots?: string[];
 };
 
-export function ScanPanel({ onChanged }: { onChanged?: () => void }) {
+function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${className}`}
+    />
+  );
+}
+
+export function ScanButton({ onChanged }: { onChanged?: () => void }) {
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [open, setOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRunning = useRef(false);
 
-  const refresh = async () => {
+  const poll = async () => {
     try {
       const r = await fetch("/api/scan");
       const s: ScanStatus = await r.json();
       setStatus(s);
       if (s.running) {
         wasRunning.current = true;
-        timer.current = setTimeout(refresh, 1500);
+        timer.current = setTimeout(poll, 1000);
       } else if (wasRunning.current) {
         wasRunning.current = false;
-        onChanged?.(); // a scan just finished: refresh the collection list
+        setStopping(false);
+        onChanged?.();
       }
     } catch {
-      /* ignore transient errors while polling */
+      /* ignore transient poll errors */
     }
   };
 
   useEffect(() => {
-    refresh();
+    poll();
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const running = !!status?.running;
+
   const start = async () => {
-    setOpen(true);
+    setStopping(false);
     await fetch("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
-    refresh();
+    poll();
   };
 
   const stop = async () => {
+    setStopping(true); // instant feedback; the current file finishes first
     await fetch("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,113 +84,145 @@ export function ScanPanel({ onChanged }: { onChanged?: () => void }) {
   };
 
   const folders = status?.defaultRoots ?? status?.roots ?? [];
-  const running = !!status?.running;
   const hasLast =
-    !!status && !running && status.found > 0 && status.startedAt !== null;
+    !!status && !running && status.startedAt !== null && status.found > 0;
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        onClick={() => setOpen(true)}
+        title="Scan your computer for documents"
+        className="flex h-9 items-center gap-2 rounded-lg border border-black/10 px-2.5 text-sm text-gray-600 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10"
       >
-        <span className="flex items-center gap-2 text-sm font-medium">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500">
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <path d="M8 21h8M12 17v4" />
+        {running ? (
+          <Spinner className="h-3.5 w-3.5 text-indigo-500" />
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
           </svg>
-          Scan my computer
-          {running && (
-            <span className="flex items-center gap-1 text-xs font-normal text-indigo-600 dark:text-indigo-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-500" />
-              scanning…
-            </span>
-          )}
-        </span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        )}
+        <span className="hidden sm:inline">Scan</span>
+        {running && (
+          <span className="rounded-full bg-indigo-100 px-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+            {status!.ingested}
+          </span>
+        )}
       </button>
 
       {open && (
-        <div className="border-t border-black/5 px-4 py-3 text-sm dark:border-white/10">
-          {!running ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-gray-500 dark:text-gray-400">
-                Index supported files (PDF, Word, Excel, PowerPoint, markdown,
-                text) found in:
-              </p>
-              <ul className="flex flex-col gap-1">
-                {folders.map((f) => (
-                  <li
-                    key={f}
-                    className="truncate rounded-lg bg-black/[0.03] px-2.5 py-1 font-mono text-xs text-gray-600 dark:bg-white/5 dark:text-gray-300"
-                  >
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="hs-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="hs-rise relative w-full max-w-lg rounded-2xl border border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#15151a]">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Scan my computer</h2>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  Index documents from your machine into a “My Computer”
+                  collection.
+                </p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="shrink-0 rounded-lg border border-black/10 px-3 py-1 text-sm transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+
+            {!running ? (
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    Looks for PDF, Word, Excel, PowerPoint, markdown, and text
+                    files in:
+                  </p>
+                  <ul className="flex flex-col gap-1">
+                    {folders.map((f) => (
+                      <li
+                        key={f}
+                        className="truncate rounded-lg bg-black/[0.03] px-2.5 py-1 font-mono text-xs text-gray-600 dark:bg-white/5 dark:text-gray-300"
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 <button
                   onClick={start}
-                  className="rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-500"
+                  className="self-start rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-500"
                 >
                   Scan now
                 </button>
                 {hasLast && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Last scan: {status!.ingested} indexed, {status!.skipped}{" "}
-                    unchanged, {status!.failed} failed
-                  </span>
+                    unchanged, {status!.failed} failed.
+                  </p>
                 )}
+                <p className="text-xs text-gray-400">
+                  Indexed in place. Nothing is copied or uploaded. Re-scan any
+                  time to pick up new files.
+                </p>
               </div>
-              <p className="text-xs text-gray-400">
-                Indexed in place into the “My Computer” collection. Nothing is
-                copied or uploaded. Re-scan any time to pick up new files.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">
-                  {status!.ingested} indexed
-                  <span className="text-gray-400">
-                    {" "}
-                    · {status!.skipped} unchanged · {status!.found} seen
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Spinner className="h-4 w-4 text-indigo-500" />
+                  {stopping ? "Stopping…" : "Adding the files we found…"}
+                </div>
+
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                  <div className="hs-indeterminate h-full w-2/5 rounded-full bg-indigo-500" />
+                </div>
+
+                <div className="flex gap-4 text-sm">
+                  <span>
+                    <span className="text-xl font-semibold">{status!.ingested}</span>{" "}
+                    <span className="text-gray-400">indexed</span>
                   </span>
-                </span>
+                  <span>
+                    <span className="text-xl font-semibold">{status!.skipped}</span>{" "}
+                    <span className="text-gray-400">unchanged</span>
+                  </span>
+                  {status!.failed > 0 && (
+                    <span>
+                      <span className="text-xl font-semibold">{status!.failed}</span>{" "}
+                      <span className="text-gray-400">skipped</span>
+                    </span>
+                  )}
+                </div>
+
+                {status!.current && (
+                  <div className="truncate rounded-lg bg-black/[0.03] px-2.5 py-1.5 font-mono text-xs text-gray-500 dark:bg-white/5 dark:text-gray-400">
+                    {status!.current}
+                  </div>
+                )}
+
                 <button
                   onClick={stop}
-                  className="rounded-lg border border-black/10 px-3 py-1 text-sm transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                  disabled={stopping}
+                  className="self-start rounded-xl border border-black/10 px-4 py-2 text-sm transition-colors hover:bg-black/5 disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/10"
                 >
-                  Stop
+                  {stopping ? "Stopping…" : "Stop"}
                 </button>
               </div>
-              {status!.current && (
-                <div className="truncate rounded-lg bg-black/[0.03] px-2.5 py-1 font-mono text-xs text-gray-500 dark:bg-white/5 dark:text-gray-400">
-                  {status!.current}
-                </div>
-              )}
-            </div>
-          )}
-          {status?.error && (
-            <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-              {status.error}
-            </p>
-          )}
+            )}
+
+            {status?.error && (
+              <p className="mt-3 text-xs text-red-600 dark:text-red-400">
+                {status.error}
+              </p>
+            )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
