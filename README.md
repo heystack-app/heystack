@@ -53,15 +53,15 @@ Asking ChatGPT is like asking a clever stranger who has never read your notes.
 
 ## 🖼️ Screenshots
 
-> Capture guide in [`docs/screenshots/`](docs/screenshots/). Add them here once captured with demo data.
+Captured from the bundled demo data. Regenerate with [`scripts/screenshots.mjs`](scripts/screenshots.mjs).
 
 | Ask, with sources | Open the cited source |
 |---|---|
-| ![chat](docs/screenshots/chat.svg) | ![source](docs/screenshots/source-pdf.svg) |
+| ![chat](docs/screenshots/chat.png) | ![source](docs/screenshots/source.png) |
 
-| Scan your computer | Light & dark |
+| Scan your computer | Dark theme |
 |---|---|
-| ![scan](docs/screenshots/scan.svg) | ![themes](docs/screenshots/dark-light.svg) |
+| ![scan](docs/screenshots/scan.png) | ![themes](docs/screenshots/dark-light.png) |
 
 ## 🧠 How it works
 

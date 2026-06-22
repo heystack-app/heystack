@@ -5,7 +5,7 @@
  * Usage: npm run seed
  */
 import { readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { getOrCreateCollection, ingestFile } from "@/lib/rag/ingest";
 import { isSupported } from "@/lib/rag/extract";
 import { pool } from "@/db";
@@ -35,8 +35,11 @@ async function main() {
   let skipped = 0;
   let failed = 0;
   for await (const file of walk(demoDir)) {
+    // Store a clean, portable relative source (e.g. demo/coffee-guide.pdf)
+    // rather than an absolute path with the machine's username.
+    const source = relative(process.cwd(), file).split("\\").join("/");
     try {
-      const res = await ingestFile(file, collectionId);
+      const res = await ingestFile(source, collectionId);
       if (res.skipped) {
         skipped++;
       } else {

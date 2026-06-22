@@ -1,7 +1,0 @@
-<svg width="1000" height="600" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Light and dark themes">
-  <rect x="0" y="0" width="500" height="600" rx="16" fill="#f4f4f6"/>
-  <rect x="500" y="0" width="500" height="600" rx="16" fill="#0b0b0d"/>
-  <text x="250" y="300" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="30" font-weight="700" fill="#3b3b46">Light</text>
-  <text x="750" y="300" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="30" font-weight="700" fill="#ededed">Dark</text>
-  <text x="500" y="540" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="16" fill="#8a8a99">screenshot placeholder &#8212; light &amp; dark themes</text>
-</svg>
