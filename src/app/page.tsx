@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CollectionPicker } from "@/components/collection-picker";
 import { SourceChunk } from "@/components/source-content";
+import { ScanPanel } from "@/components/scan-panel";
 
 type Citation = {
   title: string;
@@ -45,11 +46,14 @@ export default function Home() {
   const [viewerLoading, setViewerLoading] = useState(false);
   const [activeChunkId, setActiveChunkId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadCollections = () =>
     fetch("/api/collections")
       .then((r) => r.json())
       .then((d) => setCollections(d.collections ?? []))
       .catch(() => setCollections([]));
+
+  useEffect(() => {
+    loadCollections();
   }, []);
 
   useEffect(() => {
@@ -213,6 +217,8 @@ export default function Home() {
             />
           </div>
         </form>
+
+        <ScanPanel onChanged={loadCollections} />
 
         {error && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">

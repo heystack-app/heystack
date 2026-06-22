@@ -28,6 +28,8 @@ you to the exact page.
 - **It is free.** The AI runs locally via [Ollama](https://ollama.com). No
   subscription, no cost per question.
 - **You own it.** Works offline. Self-hosted with Docker or k3s.
+- **Multilingual.** Search and ask in 100+ languages (semantic search via bge-m3,
+  plus language-agnostic keyword search).
 
 ## How it works
 
@@ -53,8 +55,8 @@ keywords, all in one database) + Ollama for local embeddings and chat.
 Requirements: Docker, and [Ollama](https://ollama.com) running locally.
 
 ```bash
-# 1. Pull the models heystack uses
-ollama pull nomic-embed-text
+# 1. Pull the models heystack uses (bge-m3 is multilingual, 100+ languages)
+ollama pull bge-m3
 ollama pull llama3.1:8b
 
 # 2. Configure and start

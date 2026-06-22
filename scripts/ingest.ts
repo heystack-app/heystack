@@ -13,6 +13,8 @@ import { pool } from "@/db";
 
 async function* walk(dir: string): AsyncGenerator<string> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    // Skip Office lock/temp files like ~$report.docx.
+    if (entry.name.startsWith("~$")) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) yield* walk(full);
     else if (isSupported(full)) yield full;

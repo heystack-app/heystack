@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 -- Retrievable pieces of a document, with a vector and a full-text index.
--- embedding is 768-dim to match nomic-embed-text (see EMBEDDING_DIM).
+-- embedding is 1024-dim to match bge-m3 (see EMBEDDING_DIM). For a 768-dim model
+-- like nomic-embed-text, change this to vector(768) and set EMBEDDING_DIM=768.
 CREATE TABLE IF NOT EXISTS chunks (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id   uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   chunk_index   integer NOT NULL,
   section_path  text,                          -- e.g. "Setup > Docker > Compose"
   content       text NOT NULL,
-  embedding     vector(768),
+  embedding     vector(1024),
   tsv           tsvector GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED,
   created_at    timestamptz NOT NULL DEFAULT now()
 );

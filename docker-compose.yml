@@ -29,7 +29,8 @@ services:
       # Defaults to Ollama running on the host. To run Ollama in a container
       # instead, start with `--profile ollama` and set this to http://ollama:11434
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bge-m3}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
       CHAT_MODEL: ${CHAT_MODEL:-llama3.1:8b}
     ports:
       - "${APP_PORT:-3000}:3000"
