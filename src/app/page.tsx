@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Citation = {
   title: string;
@@ -136,25 +138,10 @@ export default function Home() {
     }
   }
 
-  // Render the answer with clickable [n] citation chips.
-  function renderAnswer(text: string) {
-    return text.split(/(\[\d+\])/g).map((part, i) => {
-      const m = /^\[(\d+)\]$/.exec(part);
-      if (m) {
-        const n = parseInt(m[1], 10);
-        return (
-          <button
-            key={i}
-            onClick={() => openByNumber(n)}
-            title="Open source"
-            className="mx-0.5 rounded bg-blue-100 px-1 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-          >
-            [{n}]
-          </button>
-        );
-      }
-      return <span key={i}>{part}</span>;
-    });
+  // Turn [n] citation markers into relative links so the markdown renderer keeps
+  // them, then we render those links as clickable chips (see the `a` override).
+  function withCiteLinks(text: string) {
+    return text.replace(/\[(\d+)\]/g, (_, n) => `[\\[${n}\\]](#cite-${n})`);
   }
 
   return (
@@ -208,12 +195,40 @@ export default function Home() {
 
       {result && (
         <section className="flex flex-col gap-4">
-          <div className="whitespace-pre-wrap rounded-lg border border-gray-200 px-4 py-3 leading-relaxed dark:border-gray-800">
-            {result.answer
-              ? renderAnswer(result.answer)
-              : loading
-                ? <span className="text-gray-400">Searching your notes…</span>
-                : null}
+          <div className="rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
+            {result.answer ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a({ href, children }) {
+                      const m = /^#cite-(\d+)$/.exec(href ?? "");
+                      if (m) {
+                        const n = parseInt(m[1], 10);
+                        return (
+                          <button
+                            onClick={() => openByNumber(n)}
+                            title="Open source"
+                            className="mx-0.5 rounded bg-blue-100 px-1 align-baseline text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
+                      return (
+                        <a href={href} target="_blank" rel="noreferrer">
+                          {children}
+                        </a>
+                      );
+                    },
+                  }}
+                >
+                  {withCiteLinks(result.answer)}
+                </ReactMarkdown>
+              </div>
+            ) : loading ? (
+              <span className="text-gray-400">Searching your notes…</span>
+            ) : null}
           </div>
 
           {result.citations.length > 0 && (
@@ -291,13 +306,21 @@ export default function Home() {
                       }
                     >
                       {ch.sectionPath && (
-                        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                           {ch.sectionPath}
                         </div>
                       )}
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {ch.content}
-                      </div>
+                      {viewerDoc.mimeType === "text/markdown" ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {ch.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {ch.content}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
