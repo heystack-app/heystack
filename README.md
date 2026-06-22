@@ -186,6 +186,31 @@ All via environment (`.env`). Sensible local defaults.
 | `DATABASE_URL` | local Postgres | Postgres + pgvector connection |
 | `OPENAI_API_KEY` | (empty) | Optional cloud fallback; leave empty to stay fully local |
 
+## 🚢 Deploy
+
+**Docker (prebuilt image).** A multi-stage image is published to GHCR on every
+push to `main`:
+
+```bash
+docker pull ghcr.io/heystack-app/heystack:latest
+```
+
+Or build and run the whole stack locally with the included compose file:
+
+```bash
+docker compose up -d
+```
+
+**Kubernetes / k3s.** Manifests live in [`k8s/`](k8s/):
+
+```bash
+kubectl create namespace heystack
+kubectl apply -n heystack -f k8s/heystack.yaml
+```
+
+Set the database password and point `OLLAMA_BASE_URL` at an Ollama instance
+(k3s nodes usually have no GPU, so use a machine that does).
+
 ## 🌐 Hosting a public demo
 
 heystack runs the models locally, so a public demo needs a host that can run
@@ -224,14 +249,21 @@ docker-compose.yml     app + Postgres (+ optional Ollama)
 
 ## 🛣️ Roadmap
 
-- [x] Hybrid retrieval + reranker, streaming answers, clickable sources
-- [x] PDF / Word / Excel / PowerPoint / Markdown / text ingestion
-- [x] Multilingual & cross-lingual search (bge-m3)
-- [x] Obsidian connector, collection picker, scan-my-computer
-- [ ] Public demo instance
-- [ ] OCR for scanned PDFs
-- [ ] Multi-user auth
-- [ ] k3s / Helm chart
+**Shipped**
+
+- Hybrid retrieval + reranker, streaming answers, and clickable, openable sources
+- Ingestion of PDF, Word, Excel, PowerPoint, Markdown, CSV, and text
+- Multilingual & cross-lingual search (bge-m3)
+- Obsidian connector, collection picker, and scan-my-computer
+- One-command Docker, a published image, and Kubernetes manifests
+
+**Planned** — contributions very welcome, see the
+[open issues](https://github.com/heystack-app/heystack/issues):
+
+- A hosted public demo
+- OCR for scanned PDFs
+- Multi-user accounts and authentication
+- A Helm chart
 
 ## 🤝 Contributing
 

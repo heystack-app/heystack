@@ -1,0 +1,158 @@
+# heystack on Kubernetes / k3s.
+#
+#   kubectl create namespace heystack
+#   kubectl apply -n heystack -f k8s/heystack.yaml
+#
+# Notes:
+# - The app image is published to GHCR by .github/workflows/docker.yml.
+# - heystack needs Ollama (with bge-m3 + llama3.1) reachable at OLLAMA_BASE_URL.
+#   k3s nodes usually have no GPU, so point this at an Ollama instance that does
+#   (another machine, or a GPU node). Edit OLLAMA_BASE_URL below.
+# - Change the database password in the Secret before using this for real.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: heystack-db
+stringData:
+  POSTGRES_USER: heystack
+  POSTGRES_PASSWORD: change-me
+  POSTGRES_DB: heystack
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: heystack-db-init
+data:
+  init.sql: |
+    CREATE EXTENSION IF NOT EXISTS vector;
+    CREATE TABLE IF NOT EXISTS collections (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      name text NOT NULL, description text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS documents (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+      source text NOT NULL, title text NOT NULL,
+      mime_type text NOT NULL DEFAULT 'text/markdown',
+      content_hash text NOT NULL, metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (collection_id, source)
+    );
+    CREATE TABLE IF NOT EXISTS chunks (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      collection_id uuid NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+      chunk_index integer NOT NULL, section_path text, content text NOT NULL,
+      embedding vector(1024),
+      tsv tsvector GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS chunks_embedding_idx ON chunks USING hnsw (embedding vector_cosine_ops);
+    CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
+    CREATE INDEX IF NOT EXISTS chunks_document_id_idx ON chunks (document_id);
+    CREATE TABLE IF NOT EXISTS chats (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      collection_id uuid REFERENCES collections(id) ON DELETE SET NULL,
+      title text NOT NULL DEFAULT 'New chat',
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS messages (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      chat_id uuid NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      role text NOT NULL, content text NOT NULL,
+      citations jsonb NOT NULL DEFAULT '[]'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: heystack-db-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heystack-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: heystack-db }
+  template:
+    metadata:
+      labels: { app: heystack-db }
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          envFrom:
+            - secretRef: { name: heystack-db }
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: heystack-db-data }
+        - name: init
+          configMap: { name: heystack-db-init }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: heystack-db
+spec:
+  selector: { app: heystack-db }
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heystack
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: heystack }
+  template:
+    metadata:
+      labels: { app: heystack }
+    spec:
+      containers:
+        - name: heystack
+          image: ghcr.io/heystack-app/heystack:latest
+          env:
+            - name: DATABASE_URL
+              value: postgres://heystack:change-me@heystack-db:5432/heystack
+            - name: OLLAMA_BASE_URL
+              value: http://host.k3d.internal:11434 # <- point at your Ollama
+            - name: EMBEDDING_MODEL
+              value: bge-m3
+            - name: EMBEDDING_DIM
+              value: "1024"
+            - name: CHAT_MODEL
+              value: llama3.1:8b
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: heystack
+spec:
+  selector: { app: heystack }
+  ports:
+    - port: 80
+      targetPort: 3000
+# Expose it with an Ingress (or `kubectl port-forward svc/heystack 3000:80`).
