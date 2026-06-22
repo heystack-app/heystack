@@ -1,0 +1,57 @@
+name: heystack
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-heystack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heystack}
+      POSTGRES_DB: ${POSTGRES_DB:-heystack}
+    ports:
+      # Published so the dev server and the ingest CLI can reach the DB from the host.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-heystack} -d ${POSTGRES_DB:-heystack}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-heystack}:${POSTGRES_PASSWORD:-heystack}@db:5432/${POSTGRES_DB:-heystack}
+      # Defaults to Ollama running on the host. To run Ollama in a container
+      # instead, start with `--profile ollama` and set this to http://ollama:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      CHAT_MODEL: ${CHAT_MODEL:-llama3.1:8b}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    extra_hosts:
+      # Lets the container reach Ollama on the host, including on Linux.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Optional: run Ollama in a container instead of on the host.
+  # Enable with:  docker compose --profile ollama up
+  # and set OLLAMA_BASE_URL=http://ollama:11434
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  db-data:
+  ollama-data:
