@@ -18,6 +18,10 @@ Runs free on your own hardware. Answers from _your_ stuff, in 100+ languages, an
 
 [Quickstart](#-quickstart) &#183; [How it works](#-how-it-works) &#183; [Features](#-features) &#183; [Screenshots](#-screenshots) &#183; [Configuration](#-configuration)
 
+<br/>
+
+<img src="docs/demo.gif" alt="heystack: ask a question, get a cited answer, click into the source" width="840">
+
 </div>
 
 ---
