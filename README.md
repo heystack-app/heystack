@@ -34,7 +34,8 @@ you to the exact page.
 ```
 Your question
    -> hybrid search over your notes (semantic + keyword, fused with RRF)
-   -> the most relevant chunks are handed to a local LLM
+   -> a reranker picks the passages that truly answer the question
+   -> those chunks are handed to a local LLM
    -> an answer written ONLY from those chunks, with clickable citations
 ```
 
@@ -105,7 +106,7 @@ src/
       chunk.ts     structural, markdown-aware chunking
       ingest.ts    parse -> chunk -> embed -> store
       retrieve.ts  hybrid search (vector + full-text) fused with RRF
-      rerank.ts    reranking hook (cross-encoder coming next)
+      rerank.ts    LLM reranker that picks the best passages
       ask.ts       retrieve -> rerank -> grounded answer with citations
     connectors/
       obsidian.ts  Obsidian vault sync (wiki-links, tags, live watch)
@@ -117,9 +118,9 @@ docker-compose.yml app + Postgres (+ optional Ollama)
 
 ## Roadmap (short)
 
-- v0.1: local markdown files, hybrid retrieval, citations, one-command deploy. (done)
-- v0.2: Obsidian vault connector with live sync (done). Next: a cross-encoder
-  reranker and a public demo.
+- v0.1: local markdown/mdx files, hybrid retrieval, citations, one-command deploy. (done)
+- v0.2: Obsidian connector with live sync, .mdx support, an LLM reranker, and a
+  collection picker (done). Next: streaming responses and a public demo.
 - v1.0: more connectors, multi-user, k3s/Helm, power-user retrieval settings.
 
 ## License

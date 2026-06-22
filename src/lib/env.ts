@@ -9,6 +9,13 @@ const schema = z.object({
   OLLAMA_BASE_URL: z.string().default("http://localhost:11434"),
   EMBEDDING_MODEL: z.string().default("nomic-embed-text"),
   CHAT_MODEL: z.string().default("llama3.1:8b"),
+  // Reranker. Defaults to the chat model so no extra model is needed.
+  RERANK_MODEL: z.string().optional(),
+  // Set ENABLE_RERANK=false to skip reranking (faster, slightly lower quality).
+  ENABLE_RERANK: z
+    .string()
+    .default("true")
+    .transform((v) => v !== "false"),
   // Optional cloud fallback. Leave empty to stay fully local and private.
   OPENAI_API_KEY: z.string().optional(),
 });

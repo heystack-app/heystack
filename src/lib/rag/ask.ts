@@ -27,12 +27,20 @@ Rules:
  * model is instructed to answer only from the sources, which is what makes the
  * answer trustworthy and verifiable.
  */
+// Pull a wider candidate set from retrieval, then let the reranker narrow it to
+// the few best passages we actually feed the model.
+const CANDIDATE_K = 15;
+const ANSWER_K = 6;
+
 export async function ask(
   question: string,
   opts: { collectionId?: string; topK?: number } = {}
 ): Promise<Answer> {
-  const retrieved = await retrieve(question, opts);
-  const ranked = await rerank(question, retrieved);
+  const retrieved = await retrieve(question, {
+    collectionId: opts.collectionId,
+    topK: CANDIDATE_K,
+  });
+  const ranked = await rerank(question, retrieved, opts.topK ?? ANSWER_K);
 
   if (ranked.length === 0) {
     return {

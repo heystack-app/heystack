@@ -15,7 +15,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await ask(question, { collectionId: body.collectionId });
+    // An empty collectionId means "search every collection".
+    const result = await ask(question, {
+      collectionId: body.collectionId || undefined,
+    });
     return Response.json(result);
   } catch (err) {
     console.error("chat error", err);

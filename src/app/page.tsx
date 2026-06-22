@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Citation = {
   title: string;
@@ -11,11 +11,23 @@ type Citation = {
 
 type Answer = { answer: string; citations: Citation[] };
 
+type Collection = { id: string; name: string; documents: number };
+
 export default function Home() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionId, setCollectionId] = useState("");
+
+  // Load the list of collections for the picker.
+  useEffect(() => {
+    fetch("/api/collections")
+      .then((r) => r.json())
+      .then((d) => setCollections(d.collections ?? []))
+      .catch(() => setCollections([]));
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +40,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, collectionId: collectionId || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -49,20 +61,38 @@ export default function Home() {
         </p>
       </header>
 
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="What did I write about…?"
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500 dark:border-gray-700 dark:bg-gray-900"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50 dark:bg-white dark:text-gray-900"
-        >
-          {loading ? "Thinking…" : "Ask"}
-        </button>
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="What did I write about…?"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500 dark:border-gray-700 dark:bg-gray-900"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-lg bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50 dark:bg-white dark:text-gray-900"
+          >
+            {loading ? "Thinking…" : "Ask"}
+          </button>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-gray-500">
+          Search in
+          <select
+            value={collectionId}
+            onChange={(e) => setCollectionId(e.target.value)}
+            className="rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
+          >
+            <option value="">All collections</option>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.documents})
+              </option>
+            ))}
+          </select>
+        </label>
       </form>
 
       {error && (
