@@ -22,12 +22,18 @@ export type ChatMessage = {
   content: string;
 };
 
+// Cap runaway generation and discourage the repetition loops smaller models can
+// fall into (especially on non-English text), which otherwise make Ollama error
+// with "Did not receive done or success response in stream".
+const GEN_OPTIONS = { num_predict: 1024, repeat_penalty: 1.15 };
+
 /** One non-streaming chat completion. */
 export async function chat(messages: ChatMessage[]): Promise<string> {
   const res = await ollama.chat({
     model: env.CHAT_MODEL,
     messages,
     stream: false,
+    options: GEN_OPTIONS,
   });
   return res.message.content;
 }
@@ -40,6 +46,7 @@ export async function* chatStream(
     model: env.CHAT_MODEL,
     messages,
     stream: true,
+    options: GEN_OPTIONS,
   });
   for await (const part of res) {
     const text = part.message?.content;

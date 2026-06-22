@@ -23,19 +23,27 @@ export async function POST(request: Request) {
     async start(controller) {
       const send = (obj: unknown) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      let sentTokens = 0;
       try {
         const { citations, tokens } = await askStream(question, {
           collectionId: body.collectionId || undefined,
         });
         send({ type: "citations", citations });
-        for await (const text of tokens) send({ type: "token", text });
+        for await (const text of tokens) {
+          send({ type: "token", text });
+          sentTokens++;
+        }
         send({ type: "done" });
       } catch (err) {
         console.error("chat stream error", err);
-        send({
-          type: "error",
-          message: "Something went wrong answering your question.",
-        });
+        // If part of the answer already streamed, end gracefully and keep it
+        // instead of discarding it behind an error.
+        if (sentTokens > 0) send({ type: "done" });
+        else
+          send({
+            type: "error",
+            message: "Something went wrong answering your question.",
+          });
       } finally {
         controller.close();
       }

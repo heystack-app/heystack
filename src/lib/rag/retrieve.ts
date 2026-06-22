@@ -27,7 +27,10 @@ export async function retrieve(
   opts: { collectionId?: string; topK?: number } = {}
 ): Promise<Retrieved[]> {
   const topK = opts.topK ?? 8;
-  const queryVec = await embedOne(query);
+  // Normalize the query the same way we normalize stored content (NFKC) so
+  // keyword matching is consistent across languages and character variants.
+  const q = query.normalize("NFKC");
+  const queryVec = await embedOne(q);
   const vecLiteral = `[${queryVec.join(",")}]`;
   const collectionFilter = opts.collectionId
     ? sql`and c.collection_id = ${opts.collectionId}`
@@ -42,12 +45,13 @@ export async function retrieve(
     limit ${CANDIDATES}
   `);
 
-  // Keyword candidates (Postgres full-text search).
+  // Keyword candidates (Postgres full-text search). The 'simple' config does no
+  // English stemming or stopword removal, so it matches any language by token.
   const ftsRes = await db.execute(sql`
     select c.id
     from chunks c
-    where c.tsv @@ plainto_tsquery('english', ${query}) ${collectionFilter}
-    order by ts_rank(c.tsv, plainto_tsquery('english', ${query})) desc
+    where c.tsv @@ plainto_tsquery('simple', ${q}) ${collectionFilter}
+    order by ts_rank(c.tsv, plainto_tsquery('simple', ${q})) desc
     limit ${CANDIDATES}
   `);
 

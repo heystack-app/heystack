@@ -41,9 +41,13 @@ export async function upsertDocument(params: {
   mimeType?: string;
   metadata?: Record<string, unknown>;
 }): Promise<IngestResult> {
-  const { collectionId, source, title, markdown, contentHash } = params;
+  const { collectionId, source, title, contentHash } = params;
   const mimeType = params.mimeType ?? "text/markdown";
   const metadata = params.metadata ?? {};
+  // NFKC normalization folds confusable/compatibility characters (e.g. the micro
+  // sign µ U+00B5 -> Greek mu μ U+03BC, ligatures, full-width forms) that PDFs
+  // and other formats emit, so keyword search works across languages.
+  const markdown = params.markdown.normalize("NFKC");
 
   const prior = await db.execute(
     sql`select id, content_hash from documents

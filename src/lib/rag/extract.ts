@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import matter from "gray-matter";
 import { extractText, getDocumentProxy } from "unpdf";
 import mammoth from "mammoth";
+import * as XLSX from "xlsx";
+import { parseOffice } from "officeparser";
 
 // File types heystack can ingest today.
 export const SUPPORTED_EXTENSIONS = new Set([
@@ -12,6 +14,9 @@ export const SUPPORTED_EXTENSIONS = new Set([
   ".txt",
   ".pdf",
   ".docx",
+  ".pptx",
+  ".xlsx",
+  ".xls",
 ]);
 const MARKDOWN = new Set([".md", ".mdx"]);
 
@@ -98,6 +103,36 @@ export async function extractFile(filePath: string): Promise<Extracted | null> {
       title: fallbackTitle,
       mimeType:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      metadata: {},
+      contentHash,
+    };
+  }
+
+  if (ext === ".xlsx" || ext === ".xls") {
+    // One markdown heading per sheet so the chunker keeps sheets as sections,
+    // with each sheet's rows as CSV (preserves the row/column structure).
+    const wb = XLSX.read(buf, { type: "buffer" });
+    const text = wb.SheetNames.map(
+      (name) => `## ${name}\n\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`
+    ).join("\n\n");
+    return {
+      text,
+      title: fallbackTitle,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      metadata: {},
+      contentHash,
+    };
+  }
+
+  if (ext === ".pptx") {
+    const ast = await parseOffice(filePath);
+    const text = ast.toText();
+    return {
+      text,
+      title: fallbackTitle,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       metadata: {},
       contentHash,
     };

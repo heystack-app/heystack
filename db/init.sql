@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   section_path  text,                          -- e.g. "Setup > Docker > Compose"
   content       text NOT NULL,
   embedding     vector(768),
-  tsv           tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
+  tsv           tsvector GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 

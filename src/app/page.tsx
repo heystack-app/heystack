@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CollectionPicker } from "@/components/collection-picker";
+import { SourceChunk } from "@/components/source-content";
 
 type Citation = {
   title: string;
@@ -37,7 +40,6 @@ export default function Home() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionId, setCollectionId] = useState("");
 
-  // Source document viewer.
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<DocView | null>(null);
   const [viewerLoading, setViewerLoading] = useState(false);
@@ -50,7 +52,6 @@ export default function Home() {
       .catch(() => setCollections([]));
   }, []);
 
-  // Once a document loads, scroll the cited passage into view.
   useEffect(() => {
     if (viewerOpen && viewerDoc && activeChunkId) {
       document
@@ -59,7 +60,6 @@ export default function Home() {
     }
   }, [viewerOpen, viewerDoc, activeChunkId]);
 
-  // Close the viewer with Escape.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setViewerOpen(false);
@@ -138,137 +138,149 @@ export default function Home() {
     }
   }
 
-  // Turn [n] citation markers into relative links so the markdown renderer keeps
-  // them, then we render those links as clickable chips (see the `a` override).
   function withCiteLinks(text: string) {
     return text.replace(/\[(\d+)\]/g, (_, n) => `[\\[${n}\\]](#cite-${n})`);
   }
 
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">heystack</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Ask questions about your own notes. Private, local, with sources.
-        </p>
-      </header>
-
-      <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="What did I write about…?"
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-gray-500 dark:border-gray-700 dark:bg-gray-900"
-          />
+  const markdownComponents = {
+    a({ href, children }: { href?: string; children?: React.ReactNode }) {
+      const m = /^#cite-(\d+)$/.exec(href ?? "");
+      if (m) {
+        const n = parseInt(m[1], 10);
+        return (
           <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-50 dark:bg-white dark:text-gray-900"
+            onClick={() => openByNumber(n)}
+            title="Open source"
+            className="mx-0.5 rounded-md bg-indigo-100 px-1.5 align-baseline text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:hover:bg-indigo-500/30"
           >
-            {loading ? "Thinking…" : "Ask"}
+            {children}
           </button>
-        </div>
+        );
+      }
+      return (
+        <a href={href} target="_blank" rel="noreferrer" className="text-indigo-600 underline dark:text-indigo-400">
+          {children}
+        </a>
+      );
+    },
+  };
 
-        <label className="flex items-center gap-2 text-sm text-gray-500">
-          Search in
-          <select
-            value={collectionId}
-            onChange={(e) => setCollectionId(e.target.value)}
-            className="rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900"
-          >
-            <option value="">All collections</option>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.documents})
-              </option>
-            ))}
-          </select>
-        </label>
-      </form>
-
-      {error && (
-        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {error}
-        </p>
-      )}
-
-      {result && (
-        <section className="flex flex-col gap-4">
-          <div className="rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
-            {result.answer ? (
-              <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a({ href, children }) {
-                      const m = /^#cite-(\d+)$/.exec(href ?? "");
-                      if (m) {
-                        const n = parseInt(m[1], 10);
-                        return (
-                          <button
-                            onClick={() => openByNumber(n)}
-                            title="Open source"
-                            className="mx-0.5 rounded bg-blue-100 px-1 align-baseline text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-                          >
-                            {children}
-                          </button>
-                        );
-                      }
-                      return (
-                        <a href={href} target="_blank" rel="noreferrer">
-                          {children}
-                        </a>
-                      );
-                    },
-                  }}
-                >
-                  {withCiteLinks(result.answer)}
-                </ReactMarkdown>
-              </div>
-            ) : loading ? (
-              <span className="text-gray-400">Searching your notes…</span>
-            ) : null}
+  return (
+    <div className="relative min-h-screen w-full bg-gradient-to-b from-gray-50 to-white text-gray-900 dark:from-[#0b0b0d] dark:to-black dark:text-gray-100">
+      <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12 sm:py-16">
+        {/* Header */}
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500" />
+              <span className="bg-gradient-to-r from-indigo-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-fuchsia-400">
+                heystack
+              </span>
+            </h1>
+            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+              Ask your own notes and files. Private, local, with sources.
+            </p>
           </div>
+          <ThemeToggle />
+        </header>
 
-          {result.citations.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Sources
-              </h2>
-              {result.citations.map((c, i) => (
-                <button
-                  key={`${c.chunkId}-${i}`}
-                  onClick={() => openCitation(c)}
-                  className="group rounded-lg border border-gray-200 px-4 py-2 text-left text-sm transition-colors hover:border-blue-400 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:bg-blue-950/20"
-                >
-                  <div className="font-medium">
-                    [{i + 1}] {c.title}
-                    {c.sectionPath ? (
-                      <span className="text-gray-400"> · {c.sectionPath}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 text-gray-500">{c.snippet}…</div>
-                  <div className="mt-1 text-xs font-medium text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
-                    Open source →
-                  </div>
-                </button>
-              ))}
+        {/* Search */}
+        <form
+          onSubmit={onSubmit}
+          className="flex flex-col gap-3 rounded-2xl border border-black/5 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/5"
+        >
+          <div className="flex gap-2">
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="What did I write about…?"
+              className="flex-1 rounded-xl bg-transparent px-3 py-2.5 text-base outline-none placeholder:text-gray-400"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {loading ? "Thinking…" : "Ask"}
+            </button>
+          </div>
+          <div className="flex items-center gap-2 px-1 text-sm text-gray-500 dark:text-gray-400">
+            <span>Search in</span>
+            <CollectionPicker
+              collections={collections}
+              value={collectionId}
+              onChange={setCollectionId}
+            />
+          </div>
+        </form>
+
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">
+            {error}
+          </p>
+        )}
+
+        {result && (
+          <section className="hs-rise flex flex-col gap-5">
+            <div className="rounded-2xl border border-black/5 bg-white px-5 py-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+              {result.answer ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto prose-pre:rounded-xl">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {withCiteLinks(result.answer)}
+                  </ReactMarkdown>
+                </div>
+              ) : loading ? (
+                <span className="inline-flex items-center gap-2 text-gray-400">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+                  Searching your notes…
+                </span>
+              ) : null}
             </div>
-          )}
-        </section>
-      )}
+
+            {result.citations.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Sources
+                </h2>
+                {result.citations.map((c, i) => (
+                  <button
+                    key={`${c.chunkId}-${i}`}
+                    onClick={() => openCitation(c)}
+                    className="group rounded-xl border border-black/5 bg-white px-4 py-3 text-left text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:hover:border-indigo-500/40"
+                  >
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-indigo-100 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                        {i + 1}
+                      </span>
+                      <span className="truncate">{c.title}</span>
+                      {c.sectionPath ? (
+                        <span className="truncate text-gray-400">· {c.sectionPath}</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-1.5 line-clamp-2 text-gray-500 dark:text-gray-400">
+                      {c.snippet}…
+                    </div>
+                    <div className="mt-1.5 text-xs font-medium text-indigo-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-indigo-400">
+                      Open source →
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
 
       {/* Source document viewer */}
       {viewerOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div
-            className="flex-1 bg-black/40"
+            className="hs-backdrop flex-1 bg-black/40 backdrop-blur-sm"
             onClick={() => setViewerOpen(false)}
             aria-hidden
           />
-          <aside className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white p-6 shadow-2xl dark:bg-gray-950">
-            <div className="mb-4 flex items-start justify-between gap-4">
+          <aside className="hs-panel flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0b0b0d]">
+            <div className="mb-5 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="truncate text-lg font-semibold">
                   {viewerDoc?.title ?? "Loading…"}
@@ -281,7 +293,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setViewerOpen(false)}
-                className="shrink-0 rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                className="shrink-0 rounded-lg border border-black/10 px-3 py-1 text-sm transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
               >
                 Close
               </button>
@@ -291,7 +303,34 @@ export default function Home() {
               <p className="text-sm text-gray-500">Loading document…</p>
             )}
 
-            {viewerDoc && (
+            {/* PDFs: embed the real document, with the cited passage called out. */}
+            {viewerDoc && viewerDoc.mimeType === "application/pdf" && (
+              <div className="flex flex-1 flex-col gap-3">
+                {(() => {
+                  const active = viewerDoc.chunks.find(
+                    (c) => c.id === activeChunkId
+                  );
+                  return active ? (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                        Cited passage
+                      </div>
+                      <div className="whitespace-pre-wrap">
+                        {active.content.slice(0, 400)}…
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                <iframe
+                  src={`/api/documents/${viewerDoc.id}/raw`}
+                  title={viewerDoc.title}
+                  className="h-[78vh] w-full rounded-xl border border-black/10 dark:border-white/10"
+                />
+              </div>
+            )}
+
+            {/* Everything else: render each stored section nicely by type. */}
+            {viewerDoc && viewerDoc.mimeType !== "application/pdf" && (
               <div className="flex flex-col gap-3">
                 {viewerDoc.chunks.map((ch) => {
                   const active = ch.id === activeChunkId;
@@ -301,26 +340,16 @@ export default function Home() {
                       id={`chunk-${ch.id}`}
                       className={
                         active
-                          ? "scroll-mt-6 rounded-lg border-2 border-yellow-400 bg-yellow-50 p-3 dark:bg-yellow-950/30"
-                          : "scroll-mt-6 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+                          ? "scroll-mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 ring-1 ring-amber-300 dark:border-amber-500/40 dark:bg-amber-500/10 dark:ring-amber-500/30"
+                          : "scroll-mt-6 rounded-xl border border-black/5 p-4 dark:border-white/10"
                       }
                     >
                       {ch.sectionPath && (
-                        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
                           {ch.sectionPath}
                         </div>
                       )}
-                      {viewerDoc.mimeType === "text/markdown" ? (
-                        <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:overflow-x-auto">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {ch.content}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {ch.content}
-                        </div>
-                      )}
+                      <SourceChunk mimeType={viewerDoc.mimeType} content={ch.content} />
                     </div>
                   );
                 })}
@@ -329,6 +358,6 @@ export default function Home() {
           </aside>
         </div>
       )}
-    </main>
+    </div>
   );
 }
