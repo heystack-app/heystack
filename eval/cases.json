@@ -1,0 +1,10 @@
+[
+  { "question": "How much caffeine is in a cup of coffee?", "expect": ["kaffee"] },
+  { "question": "Where does coffee originally come from?", "expect": ["historia-del-cafe"] },
+  { "question": "¿De dónde viene el café?", "expect": ["historia-del-cafe"] },
+  { "question": "What is the espresso ratio?", "expect": ["coffee-guide", "le-cafe", "brew-ratios"] },
+  { "question": "How do I brew with a French press?", "expect": ["coffee-guide", "brew-ratios"] },
+  { "question": "Quelle est la différence entre arabica et robusta ?", "expect": ["le-cafe"] },
+  { "question": "Welche Röstung schmeckt bitterer?", "expect": ["kaffee"] },
+  { "question": "What coffee to water ratio for a pour over?", "expect": ["coffee-guide", "brew-ratios"] }
+]

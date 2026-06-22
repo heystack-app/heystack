@@ -11,6 +11,7 @@
     "ingest": "tsx scripts/ingest.ts",
     "obsidian": "tsx scripts/obsidian.ts",
     "seed": "tsx scripts/seed.ts",
+    "eval": "tsx scripts/eval.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },

@@ -4,6 +4,28 @@ import { useEffect, useRef, useState } from "react";
 
 type Collection = { id: string; name: string; documents: number };
 
+function Item({
+  active,
+  onSelect,
+  children,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
+        active ? "text-indigo-600 dark:text-indigo-400" : ""
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function CollectionPicker({
   collections,
   value,
@@ -28,26 +50,6 @@ export function CollectionPicker({
   const label = current
     ? `${current.name} (${current.documents})`
     : "All collections";
-
-  const Item = ({
-    active,
-    onSelect,
-    children,
-  }: {
-    active: boolean;
-    onSelect: () => void;
-    children: React.ReactNode;
-  }) => (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
-        active ? "text-indigo-600 dark:text-indigo-400" : ""
-      }`}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div ref={ref} className="relative">

@@ -9,6 +9,7 @@ Runs free on your own hardware. Answers from _your_ stuff, in 100+ languages, an
 
 <br/>
 
+[![CI](https://github.com/heystack-app/heystack/actions/workflows/ci.yml/badge.svg)](https://github.com/heystack-app/heystack/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-6366f1)
 ![TypeScript](https://img.shields.io/badge/TypeScript-end_to_end-3178c6)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker_%C2%B7_k3s-2496ed)
@@ -231,6 +232,14 @@ docker-compose.yml     app + Postgres (+ optional Ollama)
 ## 🤝 Contributing
 
 Issues and PRs are welcome. It is a standard Next.js + TypeScript app: `npm install`, run Postgres with `docker compose up -d db`, then `npm run dev`.
+
+**Quality checks.** CI runs `lint`, `typecheck`, and `build` on every push and PR.
+There is also a retrieval eval that measures recall@k over the demo data:
+
+```bash
+npm run seed     # needs Ollama + a running Postgres
+npm run eval     # PASS/FAIL per case + recall@k, fails under 80%
+```
 
 ## License
 
