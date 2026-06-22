@@ -7,6 +7,7 @@ import {
   removeDocument,
   listSources,
   hashContent,
+  stripMdxNoise,
   type IngestResult,
 } from "@/lib/rag/ingest";
 
@@ -56,7 +57,8 @@ export function parseObsidian(markdown: string): ObsidianParse {
 
 const toPosix = (p: string) => p.split(sep).join("/");
 
-const isMarkdown = (p: string) => extname(p).toLowerCase() === ".md";
+const MARKDOWN_EXTS = new Set([".md", ".mdx"]);
+const isMarkdown = (p: string) => MARKDOWN_EXTS.has(extname(p).toLowerCase());
 
 /** True for paths inside an ignored or hidden directory of the vault. */
 function isIgnored(vaultPath: string, fullPath: string): boolean {
@@ -87,12 +89,16 @@ export async function ingestNote(
 ): Promise<IngestResult> {
   const raw = await readFile(filePath, "utf8");
   const parsed = matter(raw);
-  const obs = parseObsidian(parsed.content);
+  const base =
+    extname(filePath).toLowerCase() === ".mdx"
+      ? stripMdxNoise(parsed.content)
+      : parsed.content;
+  const obs = parseObsidian(base);
   const source = toPosix(relative(vaultPath, filePath));
   const title =
     typeof parsed.data.title === "string"
       ? parsed.data.title
-      : basename(filePath, ".md");
+      : basename(filePath, extname(filePath));
   const aliases = Array.isArray(parsed.data.aliases) ? parsed.data.aliases : [];
 
   return upsertDocument({

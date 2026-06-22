@@ -13,7 +13,7 @@ async function* walk(dir: string): AsyncGenerator<string> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) yield* walk(full);
-    else if (extname(entry.name).toLowerCase() === ".md") yield full;
+    else if ([".md", ".mdx"].includes(extname(entry.name).toLowerCase())) yield full;
   }
 }
 
